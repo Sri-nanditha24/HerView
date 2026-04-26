@@ -16,6 +16,7 @@ app.use(express.json());
 // routes
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/resume", require("./routes/resumeRoutes"));
+app.use("/api/ai", require("./routes/aiRoutes"));
 
 app.get("/", (req, res) => {
   res.send("Herview Backend Running 🚀");
