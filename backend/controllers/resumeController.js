@@ -16,7 +16,7 @@ exports.uploadResume = async (req, res) => {
       .replace(/\n+/g, "\n")       // remove extra newlines
       .replace(/\s+/g, " ")        // remove extra spaces
       .trim();
-    const extractedData = extractImportantData(cleanText);
+    const extractedData = await extractImportantData(cleanText);
     res.json({ text: cleanText, extractedData });
 
   } catch (error) {
