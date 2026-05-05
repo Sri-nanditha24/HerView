@@ -1,44 +1,92 @@
-// extract important keywords and sections
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-exports.extractImportantData = (text) => {
-  const lowerText = text.toLowerCase();
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-  let extracted = {
-    skills: [],
-    projects: [],
-    keywords: [],
-  };
+// 🔥 Models fallback list
+const MODEL_CANDIDATES = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+];
 
-  // 🔹 Skill keywords (you can expand later)
-  const skillList = [
-    "react",
-    "node",
-    "javascript",
-    "python",
-    "java",
-    "mongodb",
-    "machine learning",
-    "ai",
-    "html",
-    "css",
-  ];
+// 🔥 Fallback function
+async function callWithFallback(prompt) {
+  let lastError = null;
 
-  skillList.forEach((skill) => {
-    if (lowerText.includes(skill)) {
-      extracted.skills.push(skill);
+  for (const modelName of MODEL_CANDIDATES) {
+    try {
+      console.log(`Trying model: ${modelName}`);
+
+      const model = genAI.getGenerativeModel({ model: modelName });
+
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+
+      console.log(`✅ Success with ${modelName}`);
+      return text;
+
+    } catch (err) {
+      console.log(`❌ Failed with ${modelName}:`, err.message);
+      lastError = err;
     }
-  });
-
-  // 🔹 Detect projects (simple logic)
-  if (lowerText.includes("project")) {
-    extracted.projects.push("Project experience found");
   }
 
-  // 🔹 General keywords
-  if (lowerText.includes("api")) extracted.keywords.push("API");
-  if (lowerText.includes("database")) extracted.keywords.push("Database");
-  if (lowerText.includes("frontend")) extracted.keywords.push("Frontend");
-  if (lowerText.includes("backend")) extracted.keywords.push("Backend");
+  throw lastError;
+}
 
-  return extracted;
+// 🔥 Main extraction function
+exports.extractImportantData = async (text) => {
+  const prompt = `
+You are an expert resume analyzer.
+
+Extract the following from the resume:
+
+1. Skills (technical skills, programming languages, tools)
+2. Projects (project names or descriptions)
+3. Keywords (important concepts, domains, technologies)
+
+⚠️ Rules:
+- Return ONLY valid JSON
+- No explanation
+- No extra text
+
+Return format:
+{
+  "skills": ["skill1", "skill2"],
+  "projects": ["project1", "project2"],
+  "keywords": ["keyword1", "keyword2"]
+}
+
+Resume:
+${text}
+`;
+
+  try {
+    const aiText = await callWithFallback(prompt);
+
+    // ✅ Safe JSON parsing
+    let extracted;
+    try {
+      extracted = JSON.parse(aiText);
+    } catch (err) {
+      console.log("⚠️ JSON parse failed, using fallback structure");
+
+      extracted = {
+        skills: [],
+        projects: [],
+        keywords: [],
+      };
+    }
+
+    return extracted;
+
+  } catch (error) {
+    console.error("❌ Extraction Error:", error.message);
+
+    return {
+      skills: [],
+      projects: [],
+      keywords: [],
+    };
+  }
 };
