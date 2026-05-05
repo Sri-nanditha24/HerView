@@ -1,0 +1,138 @@
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #eff6ff, #fdf2f8);
+  min-height: 100vh;
+  color: #374151;
+}
+.card {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 18px;
+  margin-top: 25px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-weight: 500;
+  color: #374151;
+  background: #fbcfe8; /* baby pink */
+  transition: 0.3s;
+}
+
+button:hover {
+  background: #bfdbfe; /* baby blue */
+}
+
+button:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+.title {
+  text-align: center;
+  font-size: 32px;
+  font-weight: 600;
+  color: #a5b4fc; /* soft lavender */
+}
+video {
+  border-radius: 15px;
+  border: 2px solid #fbcfe8;
+  margin-top: 10px;
+}
+
+.question-card {
+  border-left: 4px solid #bfdbfe;
+}
+
+.question-card:hover {
+  transform: translateY(-3px);
+}
+
+.recording {
+  text-align: center;
+  font-weight: 500;
+  background: #fdf2f8;
+  color: #ec4899;
+  padding: 6px;
+  border-radius: 8px;
+}
+.login-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #eff6ff, #fdf2f8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.login-header {
+  width: 100%;
+  text-align: center;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, #bfdbfe, #fbcfe8);
+  border-bottom-left-radius: 30px;
+  border-bottom-right-radius: 30px;
+}
+
+.login-header h1 {
+  margin: 0;
+  font-size: 32px;
+  color: #374151;
+}
+
+.login-header p {
+  margin-top: 8px;
+  color: #6b7280;
+}
+.login-card {
+  background: white;
+  margin-top: 30px; /* overlap effect */
+  padding: 30px;
+  width: 320px;
+  border-radius: 20px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+  text-align: center;
+}
+
+.login-card input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 15px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+.login-btn {
+  width: 100%;
+  margin-top: 20px;
+  padding: 10px;
+  border-radius: 12px;
+  border: none;
+  background: #fbcfe8;
+  color: #374151;
+  font-weight: 500;
+  transition: 0.3s;
+}
+
+.login-btn:hover {
+  background: #bfdbfe;
+}
+
+.signup-text {
+  margin-top: 15px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.signup-text span {
+  color: #ec4899;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.login-card:hover {
+  transform: translateY(-3px);
+  transition: 0.3s;
+}
