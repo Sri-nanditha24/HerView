@@ -9,6 +9,7 @@ export default function Home() {
 
   const videoRef = useRef(null);
   const recognitionRef = useRef(null);
+  const recognitionRunningRef = useRef(false);
   const transcriptRef = useRef({});
   const isRecordingRef = useRef(false);
 
@@ -54,10 +55,13 @@ export default function Home() {
 
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
-      audio: true,
+      audio: true
     });
 
     const currentIndex = index;
+    let captureInterval;
+    let autoStopTimer;
+    transcriptRef.current[index] = "";
 
     setTranscript((prev) => ({
       ...prev,
@@ -74,7 +78,7 @@ export default function Home() {
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
 
-      recognition.continuous = true;
+      recognition.continuous = false;
       recognition.interimResults = false;
       recognition.lang = "en-IN";
       recognition.maxAlternatives = 1;
@@ -83,36 +87,59 @@ export default function Home() {
 
         const lastResult = event.results[event.results.length-1];
         const text = lastResult[0].transcript;
-        transcriptRef.current[currentIndex] += " "+text;
+
+        transcriptRef.current[currentIndex] = (transcriptRef.current[currentIndex] || "")+ " "+ text;
 
         setTranscript((prev) => ({
           ...prev,
           [currentIndex]: transcriptRef.current[currentIndex],
         }));
       };
+      const safeStartRecognition = () => {
+        if (recognitionRunningRef.current) return;
 
-      // 🔥 FIXED BUG 3: Proper restart using ref
-      recognition.onend = () => {
-        console.log("Recognition ended");
-        if (isRecordingRef.current) {
-          try{
-          console.log("Restarting recognition");
+        try {
           recognition.start();
-          }
-          catch(e){
-            console.log("Restart failed, retrying...");
-            setTimeout(()=> recognition.start(),300);
-          }
+          recognitionRunningRef.current = true;
+          console.log("Recognition started");
+        } catch (e) {
+          console.log("Recognition start blocked");
         }
       };
-      recognition.onerror = (event) => {
-    if (isRecordingRef.current) {
-    recognition.stop();
-    setTimeout(() => recognition.start(), 300);
+
+      recognition.onend = () => {
+  console.log("Recognition ended");
+
+  recognitionRunningRef.current = false;
+
+  if (isRecordingRef.current) {
+    setTimeout(() => {
+      safeStartRecognition();
+    }, 1000); // important delay
   }
 };
 
-      recognition.start();
+    recognition.onerror = (event) => {
+  console.log("Speech error:", event.error);
+
+  recognitionRunningRef.current = false;
+
+  // Ignore harmless errors
+  if (
+    event.error === "no-speech" ||
+    event.error === "audio-capture" ||
+    event.error === "aborted"
+  ) {
+    return;
+  }
+
+  if (isRecordingRef.current) {
+    setTimeout(() => {
+      safeStartRecognition();
+    }, 1000);
+  }
+};
+      safeStartRecognition();
       recognitionRef.current = recognition;
     }
 
@@ -120,6 +147,41 @@ export default function Home() {
     if (videoRef.current) {
       videoRef.current.srcObject = stream;
     }
+    const captureFrame = async () => {
+  if (!videoRef.current || !isRecordingRef.current) return;
+  if (
+  videoRef.current.videoWidth === 0 ||
+  videoRef.current.videoHeight === 0
+) {
+  return;
+}
+  const canvas = document.createElement("canvas");
+  canvas.width = videoRef.current.videoWidth;
+  canvas.height = videoRef.current.videoHeight;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(videoRef.current, 0, 0);
+
+  canvas.toBlob(async (blob) => {
+    const formData = new FormData();
+    formData.append("frame", blob);
+    formData.append("index", index);
+
+    console.log("Sending frame...");
+
+    try {
+      await API.post("/ai/frame-analysis", formData);
+    } catch (err) {
+      console.log("Frame send error", err);
+    }
+  }, "image/jpeg");
+
+  const nextDelay = Math.random() * 3000 + 2000;
+
+  captureInterval = setTimeout(captureFrame, nextDelay);
+};
+
+captureFrame();
 
     const recorder = new MediaRecorder(stream);
     let chunks = [];
@@ -129,7 +191,9 @@ export default function Home() {
     };
 
     recorder.onstop = async () => {
+      clearTimeout(captureInterval);
       const blob = new Blob(chunks, { type: "video/webm" });
+      
 
       const videoURL = URL.createObjectURL(blob);
       document.getElementById(`video-${index}`).src = videoURL;
@@ -137,12 +201,16 @@ export default function Home() {
       // 🔥 Stop speech recognition
       if (recognitionRef.current) {
         recognitionRef.current.stop();
+        recognitionRunningRef.current = false;
       }
       // 🔥 Stop recording flag first
       setIsRecording(false);
       isRecordingRef.current = false;
 
-      let finalTranscript = transcriptRef.current[index];
+      let finalTranscript =
+  transcriptRef.current[index] && transcriptRef.current[index].trim().length > 0
+    ? transcriptRef.current[index]
+    : "No clear speech detected";
 
       if (!finalTranscript || finalTranscript.trim().length < 5) {
         finalTranscript = "User spoke but speech was unclear";
@@ -160,11 +228,12 @@ export default function Home() {
 
         try {
           const res = await API.post("/ai/analyze", formData);
-
+          console.log("API RESPONSE:", res.data);
           setAnalysis((prev) => ({
             ...prev,
             [index]: res.data.analysis,
           }));
+          console.log("SETTING ANALYSIS:", res.data.analysis);
         } catch (err) {
           console.log(err);
         }
@@ -184,9 +253,13 @@ export default function Home() {
     setMediaRecorder(recorder);
 
     // auto stop after 2 mins
-    setTimeout(() => {
-      recorder.stop();
-    }, 120000);
+    autoStopTimer = setTimeout(() => {
+  if (recorder.state !== "inactive") {
+    recorder.stop();
+  }
+}, 120000);
+    clearTimeout(autoStopTimer);
+    
   };
 
   // 🎨 UI
@@ -231,7 +304,11 @@ export default function Home() {
 
           {isRecording && (
             <button
-              onClick={() => mediaRecorder?.stop()}
+              onClick={() => {
+                if(mediaRecorder && mediaRecorder.state!=="inactive"){
+                mediaRecorder.stop();
+              }
+            }}
               style={{ marginLeft: "10px" }}
             >
               Stop
@@ -246,6 +323,9 @@ export default function Home() {
               <p>Naturalness: {analysis[index].naturalness}</p>
               <p>Clarity: {analysis[index].clarity}</p>
               <p>Feedback: {analysis[index].feedback}</p>
+              {analysis[index].behaviorScore !== undefined && (
+      <p>Behavior Score: {analysis[index].behaviorScore}%</p>
+    )}
             </div>
           )}
 

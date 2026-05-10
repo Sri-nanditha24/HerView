@@ -1,3 +1,4 @@
+const { frameData } = require("../routes/videoRoute");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require("fs");
 
@@ -163,6 +164,22 @@ Return ONLY valid JSON:
     const aiText = await callWithFallback(prompt);
 
     let result;
+    const frames = frameData[index] || [];
+
+let score = 0;
+
+frames.forEach((f) => {
+  if (f === "focused") score += 2;
+  if (f === "looking_left" || f === "looking_right") score -= 1;
+  if (f === "no_face") score -= 2;
+});
+
+const behaviorScore =
+  frames.length > 0
+    ? Math.max(0, Math.min(100, (score / (frames.length * 2)) * 100))
+    : 0;
+    console.log("Frames:", frames);
+    console.log("Behavior Score:", behaviorScore);
 
     try {
       // 🔥 Clean JSON (important)
@@ -178,7 +195,8 @@ Return ONLY valid JSON:
         feedback: "Try to improve structure",
       };
     }
-
+    delete frameData[index];
+    result.behaviorScore = behaviorScore;
     // ✅ FINAL RESPONSE (ONLY ONCE)
     res.json({
       videoPath,
@@ -197,4 +215,5 @@ Return ONLY valid JSON:
       feedback: "AI failed, try again",
     });
   }
+  
 };
